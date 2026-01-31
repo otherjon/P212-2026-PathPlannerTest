@@ -17,6 +17,11 @@ from wpilib import DriverStation
 from wpimath.geometry import Rotation2d
 from wpimath.units import rotationsToRadians
 
+from pathplannerlib.auto import AutoBuilder
+from pathplannerlib.controller import PPHolonomicDriveController
+from pathplannerlib.config import RobotConfig, PIDConstants
+from wpilib import DriverStation
+
 
 class RobotContainer:
     """
@@ -56,6 +61,39 @@ class RobotContainer:
 
         # Configure the button bindings
         self.configureButtonBindings()
+
+        # Load the RobotConfig from the GUI settings. You should probably
+        # store this in your Constants file
+        config = RobotConfig.fromGUISettings()
+
+        # Configure the AutoBuilder last
+        AutoBuilder.configure(
+            self.drivetrain.getPose, # Robot pose supplier
+            # Method to reset odometry
+            # (will be called if your auto has a starting pose)
+            self.drivetrain.resetPose,
+            # ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
+            self.drivetrain.getRobotRelativeSpeeds,
+            # Method that will drive the robot given ROBOT RELATIVE
+            # ChassisSpeeds. Also outputs individual module feedforwards
+            lambda speeds, feedforwards: self.drivetrain.driveRobotRelative(speeds),
+            # PPHolonomicController is the built in path following controller for holonomic drive trains
+            PPHolonomicDriveController(
+                PIDConstants(5.0, 0.0, 0.0), # Translation PID constants
+                PIDConstants(5.0, 0.0, 0.0) # Rotation PID constants
+            ),
+            config, # The robot configuration
+            # Supplier to control path flipping based on alliance color
+            self.shouldFlipPath,
+            self.drivetrain # Reference to this subsystem to set requirements
+        )
+
+    def shouldFlipPath():
+        # Boolean supplier that controls when the path will be mirrored for the red alliance
+        # This will flip the path being followed to the red side of the field.
+        # THE ORIGIN WILL REMAIN ON THE BLUE SIDE
+        return DriverStation.getAlliance() == DriverStation.Alliance.kRed
+
 
     def configureButtonBindings(self) -> None:
         """
