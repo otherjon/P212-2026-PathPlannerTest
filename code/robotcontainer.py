@@ -39,16 +39,30 @@ class RobotContainer:
             0.75
         )  # 3/4 of a rotation per second max angular velocity
 
-        # Setting up bindings for necessary control of the swerve drive platform
+        # Create several template requests for various swerve operations.
+        # CTR's swerve commands are expensive to create but cheaper to modify,
+        # so we create template requests here in the constructor.  Then
+        # whenever we want to actually have the swerve subsystem do anything,
+        # we take the appropriate template request and modify it, and send the
+        # result to the set_control() method to actually run it.
+        #
+        # We'll create the following template requests:
+        #  * self._drive (FieldCentric drive request)
+        #  * self._brake (SwerveDriveBrake request)
+        #  * self._point (PointWheelsAt request)
+        #
         self._drive = (
+            # Our drive request template will be a default FieldCentric drive
+            # request with the following modifications:
+            #  * 5% deadband for both translation and rotation
+            #  * use open-loop voltage control for drive motors
+            #
             swerve.requests.FieldCentric()
-            .with_deadband(self._max_speed * 0.1)
-            .with_rotational_deadband(
-                self._max_angular_rate * 0.1
-            )  # Add a 10% deadband
+            .with_deadband(self._max_speed * 0.05)
+            .with_rotational_deadband(self._max_angular_rate * 0.05)
             .with_drive_request_type(
                 swerve.SwerveModule.DriveRequestType.OPEN_LOOP_VOLTAGE
-            )  # Use open-loop control for drive motors
+            )
         )
         self._brake = swerve.requests.SwerveDriveBrake()
         self._point = swerve.requests.PointWheelsAt()
@@ -62,31 +76,46 @@ class RobotContainer:
         # Configure the button bindings
         self.configureButtonBindings()
 
+        # Configure the PathPlanner AutoBuilder last
+        self.configure_pp_auto_builder()
+
+
+    def configure_pp_auto_builder(self):
         # Load the RobotConfig from the GUI settings. You should probably
-        # store this in your Constants file
+        # store this in your Constants file.
         config = RobotConfig.fromGUISettings()
 
-        # Configure the AutoBuilder last
         AutoBuilder.configure(
             self.drivetrain.getPose, # Robot pose supplier
+
             # Method to reset odometry
             # (will be called if your auto has a starting pose)
             self.drivetrain.resetPose,
+
             # ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
             self.drivetrain.getRobotRelativeSpeeds,
+
             # Method that will drive the robot given ROBOT RELATIVE
             # ChassisSpeeds. Also outputs individual module feedforwards
-            lambda speeds, feedforwards: self.drivetrain.driveRobotRelative(speeds),
-            # PPHolonomicController is the built in path following controller for holonomic drive trains
+            lambda speeds, feedforwards: (
+                self.drivetrain.driveRobotRelative(speeds)),
+
+            # PPHolonomicController is the built-in path following controller
+            # for holonomic drive trains (including swerve)
             PPHolonomicDriveController(
                 PIDConstants(5.0, 0.0, 0.0), # Translation PID constants
                 PIDConstants(5.0, 0.0, 0.0) # Rotation PID constants
             ),
+
             config, # The robot configuration
+
             # Supplier to control path flipping based on alliance color
             self.shouldFlipPath,
-            self.drivetrain # Reference to this subsystem to set requirements
+
+            # Reference to drivetrain subsystem to set requirements
+            self.drivetrain
         )
+
 
     def shouldFlipPath():
         # Boolean supplier that controls when the path will be mirrored for the red alliance
