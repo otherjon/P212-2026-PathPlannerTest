@@ -66,7 +66,7 @@ class RobotContainer:
         )
         self._brake = swerve.requests.SwerveDriveBrake()
         self._point = swerve.requests.PointWheelsAt()
-        self._setspeeds = swerve.requests.ApplyChassisSpeeds()
+        self._setspeeds = swerve.requests.ApplyRobotSpeeds()
 
         self._logger = Telemetry(self._max_speed)
 
