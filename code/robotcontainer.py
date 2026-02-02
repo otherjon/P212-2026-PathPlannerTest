@@ -52,6 +52,7 @@ class RobotContainer:
         )
         self._brake = swerve.requests.SwerveDriveBrake()
         self._point = swerve.requests.PointWheelsAt()
+        self._setspeeds = swerve.requests.ApplyChassisSpeeds()
 
         self._logger = Telemetry(self._max_speed)
 
@@ -68,15 +69,15 @@ class RobotContainer:
 
         # Configure the AutoBuilder last
         AutoBuilder.configure(
-            self.drivetrain.getPose, # Robot pose supplier
+            self.getPose, # Robot pose supplier
             # Method to reset odometry
             # (will be called if your auto has a starting pose)
-            self.drivetrain.resetPose,
+            self.resetPose,
             # ChassisSpeeds supplier. MUST BE ROBOT RELATIVE
-            self.drivetrain.getRobotRelativeSpeeds,
+            self.getRobotRelativeSpeeds,
             # Method that will drive the robot given ROBOT RELATIVE
             # ChassisSpeeds. Also outputs individual module feedforwards
-            lambda speeds, feedforwards: self.drivetrain.driveRobotRelative(speeds),
+            lambda speeds, feedforwards: self.driveRobotRelative(speeds, feedforwards),
             # PPHolonomicController is the built in path following controller for holonomic drive trains
             PPHolonomicDriveController(
                 PIDConstants(5.0, 0.0, 0.0), # Translation PID constants
@@ -187,3 +188,20 @@ class RobotContainer:
             # Finally idle for the rest of auton
             self.drivetrain.apply_request(lambda: idle)
         )
+
+
+    def getPose(self):
+        return self.drivetrain.get_state().pose
+
+
+    def resetPose(self, pose):
+        return self.drivetrain.reset_pose(pose)
+
+
+    def getRobotRelativeSpeeds(self):
+        return self.drivetrain.get_state().speeds
+
+
+    def driveRobotRelative(self, speeds, feedforwards=None):
+        request = self._setspeeds.with_speeds(speeds)
+        self.drivetrain.set_control(request)
